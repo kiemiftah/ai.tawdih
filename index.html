@@ -121,18 +121,23 @@
 
         const APPS_SCRIPT_CODE = `/**
  * GOOGLE APPS SCRIPT UNTUK AI.TAWDIH
- * Membolehkan penyimpanan data secara automatik.
+ * Memungkinkan penyimpanan data secara otomatis dengan pembuatan header.
  */
 
 function setup() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Sheet1");
-  if (!sheet) sheet = ss.insertSheet("Sheet1");
+  var sheet = ss.getSheetByName("Sheet1") || ss.insertSheet("Sheet1");
   var firstRow = sheet.getRange(1, 1, 1, 3).getValues()[0];
+  
+  // Jika baris pertama bukan header 'id', buat header baru
   if (firstRow[0] !== "id") {
     sheet.insertRowBefore(1);
     sheet.getRange(1, 1, 1, 3).setValues([["id", "name", "url"]]);
-    sheet.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#4f46e5").setFontColor("white");
+    sheet.getRange(1, 1, 1, 3)
+         .setFontWeight("bold")
+         .setBackground("#4f46e5")
+         .setFontColor("white")
+         .setHorizontalAlignment("center");
     sheet.setFrozenRows(1);
   }
 }
@@ -140,21 +145,31 @@ function setup() {
 function doGet() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
   if (!sheet) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+  
   var data = sheet.getDataRange().getValues();
   var result = [];
+  
+  // Ambil data mulai dari baris ke-2
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0]) result.push({ id: data[i][0].toString(), name: data[i][1], url: data[i][2] });
+    if (data[i][0]) {
+      result.push({ 
+        id: data[i][0].toString(), 
+        name: data[i][1], 
+        url: data[i][2] 
+      });
+    }
   }
   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
-  setup(); // Auto-create header
+  setup(); // Pastikan header ada sebelum menambah data
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
   var params = JSON.parse(e.postData.contents);
+  
   if (params.action === "add") {
     sheet.appendRow([params.id, params.name, params.url]);
-    return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput("Berhasil").setMimeType(ContentService.MimeType.TEXT);
   } else if (params.action === "delete") {
     var data = sheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
@@ -163,7 +178,7 @@ function doPost(e) {
         break;
       }
     }
-    return ContentService.createTextOutput("Deleted").setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput("Dihapus").setMimeType(ContentService.MimeType.TEXT);
   }
 }`;
 
@@ -202,7 +217,7 @@ function doPost(e) {
                     const data = await response.json();
                     setFolderLinks(data);
                 } catch (error) {
-                    console.error("Gagal menarik data:", error);
+                    console.error("Gagal mengambil data:", error);
                 } finally {
                     setIsLoadingCloud(false);
                 }
@@ -211,13 +226,13 @@ function doPost(e) {
             const handleAdminLogin = (e) => {
                 e.preventDefault();
                 if (adminPassword === "admin123") setIsAuthenticated(true);
-                else alert('Kod salah / Invalid code.');
+                else alert('Kode salah / Invalid code.');
             };
 
             const saveConfig = (e) => {
                 e.preventDefault();
                 localStorage.setItem('tawdih_script_url', scriptUrl);
-                alert('URL Skrip disimpan!');
+                alert('URL Skrip berhasil disimpan!');
                 fetchCloudData();
             };
 
@@ -225,7 +240,8 @@ function doPost(e) {
                 e.preventDefault();
                 if (!newFolderUrl) return;
                 
-                const folderName = "Rujukan Folder";
+                // Menentukan nama default atau dari URL
+                const folderName = "Folder Google Drive";
                 const newFolder = {
                     id: Date.now().toString(),
                     name: folderName,
@@ -278,7 +294,7 @@ function doPost(e) {
                 el.select();
                 document.execCommand('copy');
                 document.body.removeChild(el);
-                alert("Kod Skrip telah disalin!");
+                alert("Kode Apps Script berhasil disalin!");
             };
 
             const callGeminiAPI = async (userPrompt) => {
@@ -317,7 +333,7 @@ function doPost(e) {
                 setMessages(prev => [...prev, { role: 'user', content: userText }]);
                 setIsTyping(true);
                 const response = await callGeminiAPI(userText);
-                setMessages(prev => [...prev, { role: 'assistant', content: response || "Maaf, ralat maklum balas." }]);
+                setMessages(prev => [...prev, { role: 'assistant', content: response || "Maaf, terjadi kesalahan respon." }]);
                 setIsTyping(false);
             };
 
@@ -340,17 +356,17 @@ function doPost(e) {
                                 <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-custom">
                                     <div className="space-y-4 text-xs sm:text-sm text-slate-600 leading-relaxed">
                                         <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                                            <p className="font-bold text-indigo-700 mb-1 italic">Penyediaan Automatik:</p>
-                                            Kod di bawah akan membina tajuk id, name, url secara automatik sekiranya helaian anda masih kosong.
+                                            <p className="font-bold text-indigo-700 mb-1 italic">Fitur Automasi:</p>
+                                            Kode di bawah akan secara otomatis membuat tajuk (header) 'id', 'name', 'url' di Google Sheet Anda saat pertama kali data disimpan.
                                         </div>
-                                        <p><strong>1.</strong> Cipta fail <strong>Google Sheet</strong> baru.</p>
-                                        <p><strong>2.</strong> Pergi ke menu <strong>Extensions > Apps Script</strong>.</p>
-                                        <p><strong>3.</strong> Padam semua kod lama, dan tampal kod di bawah.</p>
+                                        <p><strong>1.</strong> Buat file <strong>Google Sheet</strong> baru.</p>
+                                        <p><strong>2.</strong> Buka menu <strong>Extensions > Apps Script</strong>.</p>
+                                        <p><strong>3.</strong> Hapus semua kode lama, dan tempel kode di bawah ini.</p>
                                         
                                         <div className="relative group">
                                             <div className="absolute right-3 top-3 z-10">
                                                 <button onClick={copyScript} className="bg-slate-800 text-white p-2 rounded-xl flex items-center gap-2 text-[10px] hover:bg-black transition-all active:scale-95">
-                                                    <IconCopy size={14} /> Salin Kod
+                                                    <IconCopy size={14} /> Salin Kode
                                                 </button>
                                             </div>
                                             <pre className="bg-slate-900 text-indigo-300 p-4 rounded-2xl text-[10px] sm:text-xs overflow-x-auto border-4 border-slate-800 mt-2 font-mono">
@@ -358,14 +374,14 @@ function doPost(e) {
                                             </pre>
                                         </div>
 
-                                        <p><strong>4.</strong> Pilih fungsi <strong>setup</strong> pada bar atas dan tekan <strong>Run</strong> (Sekali sahaja).</p>
+                                        <p><strong>4.</strong> Simpan proyek skrip Anda.</p>
                                         <p><strong>5.</strong> Tekan butang <strong>Deploy > New Deployment</strong>.</p>
-                                        <p><strong>6.</strong> Pilih <strong>Web App</strong>, akses kepada <strong>Anyone</strong>, tekan <strong>Deploy</strong>.</p>
-                                        <p><strong>7.</strong> Salin <strong>URL Web App</strong> dan tampal dalam bahagian Admin aplikasi ini.</p>
+                                        <p><strong>6.</strong> Pilih <strong>Web App</strong>, akses ke <strong>Anyone</strong>, tekan <strong>Deploy</strong>.</p>
+                                        <p><strong>7.</strong> Salin <strong>URL Web App</strong> dan tempel di bagian Admin aplikasi ini.</p>
                                     </div>
                                 </div>
                                 <div className="p-4 bg-slate-50 border-t text-center">
-                                    <button onClick={() => setIsTutorialOpen(false)} className="bg-slate-800 text-white px-8 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest active:scale-95">Faham, Terima Kasih</button>
+                                    <button onClick={() => setIsTutorialOpen(false)} className="bg-slate-800 text-white px-8 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest active:scale-95">Saya Mengerti</button>
                                 </div>
                             </div>
                         </div>
@@ -387,12 +403,12 @@ function doPost(e) {
                             </div>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 {scriptUrl && (
-                                    <div className={`p-2 rounded-full ${isLoadingCloud ? 'animate-pulse text-yellow-300' : 'text-emerald-400'}`} title="Cloud Sync Active">
+                                    <div className={`p-2 rounded-full ${isLoadingCloud ? 'animate-pulse text-yellow-300' : 'text-emerald-400'}`} title="Cloud Sync Aktif">
                                         <IconCloud size={16} />
                                     </div>
                                 )}
                                 {isLearned && activeTab !== 'admin' && (
-                                    <button onClick={handleReset} title="Mula Semula" className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
+                                    <button onClick={handleReset} title="Mulai Ulang" className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
                                         <IconRefresh size={18} />
                                     </button>
                                 )}
@@ -410,7 +426,7 @@ function doPost(e) {
                                         <button 
                                             onClick={() => setIsAuthenticated(false)} 
                                             className="p-2 text-white hover:bg-red-500 rounded-full transition-all active:scale-90"
-                                            title="Log Keluar"
+                                            title="Keluar Admin"
                                         >
                                             <IconLogOut size={18} />
                                         </button>
@@ -437,7 +453,7 @@ function doPost(e) {
                                             <form onSubmit={handleAdminLogin} className="space-y-4">
                                                 <input 
                                                     type="password" 
-                                                    placeholder="Kod keselamatan..."
+                                                    placeholder="Kata sandi keamanan..."
                                                     className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-indigo-100 text-center transition-all font-bold"
                                                     value={adminPassword}
                                                     onChange={(e) => setAdminPassword(e.target.value)}
@@ -457,28 +473,28 @@ function doPost(e) {
                                                         onClick={() => setIsTutorialOpen(true)}
                                                         className="text-[9px] font-bold text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-full hover:bg-indigo-100 flex items-center gap-1 transition-all"
                                                     >
-                                                        <IconHelp size={12} /> Tutorial & Kod Skrip
+                                                        <IconHelp size={12} /> Tutorial & Kode Skrip
                                                     </button>
                                                 </div>
                                                 <form onSubmit={saveConfig} className="space-y-2">
                                                     <input 
                                                         type="url" 
-                                                        placeholder="URL Google Apps Script..."
+                                                        placeholder="URL Google Apps Script Web App..."
                                                         className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] outline-none focus:ring-2 focus:ring-indigo-400 font-mono"
                                                         value={scriptUrl}
                                                         onChange={(e) => setScriptUrl(e.target.value)}
                                                     />
-                                                    <button className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase tracking-widest">Simpan URL Skrip</button>
+                                                    <button className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase tracking-widest">Simpan Konfigurasi</button>
                                                 </form>
                                             </div>
 
                                             {/* MASUKKAN RUJUKAN BARU */}
                                             <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-                                                <h3 className="text-[10px] font-bold text-slate-800 mb-3 uppercase tracking-wider">Masukkan Rujukan Baru</h3>
+                                                <h3 className="text-[10px] font-bold text-slate-800 mb-3 uppercase tracking-wider text-center">Masukkan Rujukan Baru</h3>
                                                 <form onSubmit={addFolder} className="space-y-2">
                                                     <input 
                                                         type="url" 
-                                                        placeholder="Tampal Pautan Google Drive Di Sini..."
+                                                        placeholder="Tempel Tautan Google Drive Di Sini..."
                                                         className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] outline-none focus:ring-2 focus:ring-indigo-400"
                                                         value={newFolderUrl}
                                                         onChange={(e) => setNewFolderUrl(e.target.value)}
@@ -487,12 +503,12 @@ function doPost(e) {
                                                 </form>
                                             </div>
 
-                                            {/* Senarai Data */}
+                                            {/* Daftar Data */}
                                             <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-                                                <h3 className="text-[10px] font-bold text-slate-800 mb-3 uppercase tracking-wider">Senarai Rujukan Aktif</h3>
+                                                <h3 className="text-[10px] font-bold text-slate-800 mb-3 uppercase tracking-wider">Daftar Rujukan Aktif</h3>
                                                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 scroll-custom">
                                                     {folderLinks.length === 0 ? (
-                                                        <p className="text-[9px] text-slate-400 text-center py-4 italic font-medium">Tiada data dijumpai.</p>
+                                                        <p className="text-[9px] text-slate-400 text-center py-4 italic font-medium">Belum ada rujukan tersimpan.</p>
                                                     ) : (
                                                         folderLinks.map(folder => (
                                                             <div key={folder.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 animate-fade-in">
